@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kts_crm_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kts_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kts_secret_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-kts_crm}
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - kts_internal_net
+
+volumes:
+  postgres_data:
+
+networks:
+  kts_internal_net:
+    driver: bridge

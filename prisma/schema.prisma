@@ -1,0 +1,577 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS - MULTI-BRANCH RBAC & ENTERPRISE WORKFLOWS
+// ============================================================================
+
+enum BranchType {
+  HQ      // Trụ sở chính (Hub - LAN 10.10.0.0/16)
+  FACTORY // Chi nhánh con / Nhà xưởng (Spoke - LAN 10.20.0.0/16 via Cloudflare WARP)
+  OFFICE  // Văn phòng đại diện
+}
+
+enum RoleCode {
+  SUPER_ADMIN         // Quản trị tối cao toàn hệ thống
+  DIRECTOR            // Ban Giám Đốc (HQ VLAN 30 - Toàn quyền xem đa chi nhánh)
+  IT_ADMIN            // Trung tâm vận hành IT Remote (VLAN 10 MGMT)
+  HR_MANAGER          // Trưởng phòng Nhân sự HQ (Quản lý nhân sự đa chi nhánh)
+  HR_BRANCH           // Nhân sự Chi nhánh / Xưởng (Chỉ quản lý nhân sự thuộc chi nhánh mình)
+  ACCOUNTANT_HQ       // Kế toán trưởng / Kế toán HQ (Xem và duyệt lương đa chi nhánh)
+  ACCOUNTANT_BRANCH   // Kế toán Chi nhánh / Xưởng (Tính lương, in phiếu lương K80/A4 tại xưởng)
+  PRODUCTION_MANAGER  // Quản lý Kế hoạch Sản xuất & Tổ/Chuyền
+  PURCHASING_STAFF    // Bộ phận Thu mua (Purchasing)
+  SALES_STAFF         // Bộ phận Kinh doanh (Sale - HQ VLAN 30)
+  OFFICE_STAFF        // Nhân viên văn phòng
+  FACTORY_WORKER      // Công nhân sản xuất (Theo Tổ/Chuyền)
+}
+
+enum DataScope {
+  ALL_BRANCHES    // Truy cập dữ liệu tất cả chi nhánh (Giám đốc, Super Admin, HR/Kế toán HQ)
+  OWN_BRANCH      // Chỉ truy cập dữ liệu thuộc Chi nhánh của mình (HR Xưởng, Kế toán Xưởng...)
+  OWN_DEPARTMENT  // Chỉ truy cập dữ liệu thuộc Phòng ban của mình tại Chi nhánh
+  OWN_TEAM        // Chỉ truy cập dữ liệu thuộc Tổ/Chuyền của mình
+  SELF            // Chỉ truy cập hồ sơ cá nhân của chính mình
+}
+
+enum AccountStatus {
+  ACTIVE
+  LOCKED
+  SUSPENDED
+  PENDING_ACTIVATION
+}
+
+enum EmployeeType {
+  OFFICE_STAFF    // Nhân viên văn phòng (VLAN 30)
+  FACTORY_WORKER  // Công nhân phổ thông / sản xuất (Chấm công khuôn mặt/vân tay VLAN 40)
+  EXECUTIVE       // Cấp quản lý / Giám đốc
+}
+
+enum EmploymentStatus {
+  PROBATION       // Thử việc
+  OFFICIAL        // Chính thức
+  MATERNITY_LEAVE // Nghỉ thai sản
+  UNPAID_LEAVE    // Nghỉ không lương
+  RESIGNED        // Đã nghỉ việc
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ContractType {
+  PROBATION       // Hợp đồng thử việc
+  FIXED_1_YEAR    // Hợp đồng xác định thời hạn 1 năm
+  FIXED_3_YEARS   // Hợp đồng xác định thời hạn 3 năm
+  INDEFINITE      // Hợp đồng không xác định thời hạn
+  SEASONAL        // Hợp đồng thời vụ / khoán việc
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+enum PayrollStatus {
+  DRAFT
+  CALCULATED
+  APPROVED
+  PAID
+}
+
+enum PayslipFormat {
+  K80_THERMAL // Máy in nhiệt K80 tự cắt rời từng phiếu
+  A4_THREE_UP // Khổ A4 (3 phiếu / trang)
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum PurchaseStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ORDERED
+  RECEIVED
+  REJECTED
+}
+
+// ============================================================================
+// 1. CHI NHÁNH (BRANCHES - HUB & SPOKE TOPOLOGY)
+// ============================================================================
+
+model Branch {
+  id              String     @id @default(uuid())
+  code            String     @unique // VD: "HQ-HCM", "FACTORY-BD-01"
+  name            String             // VD: "Trụ Sở Chính (HQ)", "Nhà Xưởng Bình Dương 01"
+  type            BranchType @default(FACTORY)
+  subnetCidr      String?            // VD: "10.10.0.0/16" (HQ), "10.20.0.0/16" (Spoke)
+  officeVlanCidr  String?            // VD: "10.10.30.0/23" hoặc "10.20.30.0/24"
+  iotVlanCidr     String?            // VD: "10.10.40.0/24" hoặc "10.20.40.0/24"
+  warpTunnelId    String?            // Cloudflare WARP Connector ID
+  address         String?
+  phone           String?
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  departments     Department[]
+  productionTeams ProductionTeam[]
+  users           User[]
+  employees       Employee[]
+  customers       Customer[]
+  attendanceLogs  AttendanceSummary[]
+  payrolls        Payroll[]
+  auditLogs       AuditLog[]
+  officeTasks     OfficeTask[]
+  productionPlans ProductionPlan[]
+  purchaseReqs    PurchaseRequest[]
+
+  @@map("branches")
+}
+
+// ============================================================================
+// 2. PHÒNG BAN (DEPARTMENTS) & TỔ / CHUYỀN (PRODUCTION TEAMS)
+// ============================================================================
+
+model Department {
+  id              String   @id @default(uuid())
+  branchId        String
+  code            String   // VD: "BOD", "HR", "ACC", "SALE", "PUR", "PROD", "IT"
+  name            String   // VD: "Phòng Nhân Sự", "Phòng Kế Toán", "Bộ Phận Thu Mua"
+  nasSharePath    String?  // Đường dẫn SMB NAS (ABE): VD "\\10.10.20.250\NhanSu"
+  adGroupDn       String?  // Active Directory / LDAP Group DN
+  managerId       String?
+  description     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  branch          Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  productionTeams ProductionTeam[]
+  employees       Employee[]
+  officeTasks     OfficeTask[]
+  purchaseReqs    PurchaseRequest[]
+
+  @@unique([branchId, code])
+  @@index([branchId])
+  @@map("departments")
+}
+
+model ProductionTeam {
+  id          String   @id @default(uuid())
+  branchId    String
+  departmentId String
+  code        String   // VD: "CHUYEN-MAY-01", "TO-DONG-GOI-02"
+  name        String   // VD: "Chuyền May 01", "Tổ Đóng Gói 02"
+  leaderName  String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  branch          Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  department      Department       @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  employees       Employee[]
+  payrolls        Payroll[]
+  productionPlans ProductionPlan[]
+
+  @@unique([branchId, code])
+  @@index([branchId, departmentId])
+  @@map("production_teams")
+}
+
+// ============================================================================
+// 3. TÀI KHOẢN & BẢO MẬT (ACCOUNTS, RBAC, JWT & GOOGLE MAIL 2FA)
+// ============================================================================
+
+model User {
+  id                  String        @id @default(uuid())
+  email               String        @unique
+  username            String        @unique // Đồng bộ với AD/LDAP username nếu có
+  passwordHash        String
+  role                RoleCode      @default(OFFICE_STAFF)
+  dataScope           DataScope     @default(OWN_BRANCH)
+  branchId            String
+  allowedBranchIds    String[]      @default([]) // Cho phép phụ trách thêm chi nhánh chỉ định
+  customPermissions   String[]      @default([]) // Quyền bổ sung ngoài Role mặc định (VD: ["payroll:print_slip"])
+  revokedPermissions  String[]      @default([]) // Quyền bị thu hồi cá biệt
+  status              AccountStatus @default(ACTIVE)
+
+  // Bảo mật 2FA qua Google Mail (OTP)
+  twoFactorEnabled    Boolean       @default(true)
+  twoFactorEmail      String?       // Mặc định dùng email chính nếu null
+  otpCodeHash         String?       // SHA-256 hash của mã OTP 6 số
+  otpExpiresAt        DateTime?
+  otpAttempts         Int           @default(0)
+  otpLastSentAt       DateTime?
+
+  // Quản lý đăng nhập & AD/LDAP
+  adLdapDn            String?
+  failedLoginAttempts Int           @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  lastLoginIp         String?
+  passwordChangedAt   DateTime?
+
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  branch              Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  employee            Employee?
+  refreshTokens       RefreshToken[]
+  auditLogs           AuditLog[]
+
+  @@index([branchId, role])
+  @@index([email])
+  @@map("accounts")
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid())
+  userId      String
+  tokenHash   String   @unique
+  ipAddress   String?
+  userAgent   String?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ============================================================================
+// 4. HỒ SƠ NHÂN VIÊN (EMPLOYEES - KÈM TỔ / CHUYỀN)
+// ============================================================================
+
+model Employee {
+  id                  String           @id @default(uuid())
+  employeeCode        String           @unique // VD: "NV-HQ-0001", "CN-BD1-0105"
+  userId              String?          @unique
+  branchId            String
+  departmentId        String
+  productionTeamId    String?          // Bắt buộc với công nhân xưởng theo Tổ / Chuyền
+  attendanceDeviceId  String?          @unique // Mã ID trên máy chấm công khuôn mặt/vân tay (VLAN 40)
+
+  // Thông tin cá nhân
+  fullName            String
+  avatarUrl           String?
+  gender              Gender?
+  dateOfBirth         DateTime?
+  nationalId          String?          @unique // Số CCCD / CMND
+  nationalIdIssueDate DateTime?
+  nationalIdIssuePlace String?
+  taxCode             String?          // Mã số thuế cá nhân
+  socialInsuranceNo   String?          // Mã số BHXH
+  phone               String?
+  personalEmail       String?
+  permanentAddress    String?
+  currentAddress      String?
+
+  // Thông tin công việc & phân loại
+  positionTitle       String           // Chức danh: "Chuyên viên Thu mua", "Kế toán Xưởng", "Công nhân May"...
+  employeeType        EmployeeType     @default(OFFICE_STAFF)
+  employmentStatus    EmploymentStatus @default(OFFICIAL)
+  hireDate            DateTime         @default(now())
+  officialDate        DateTime?
+  resignationDate     DateTime?
+
+  // Thông tin ngân hàng & liên hệ khẩn cấp
+  bankAccountNumber   String?
+  bankName            String?
+  bankBranch          String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  notes               String?
+
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  user                User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  branch              Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  department          Department       @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  productionTeam      ProductionTeam?  @relation(fields: [productionTeamId], references: [id], onDelete: SetNull)
+
+  contracts           Contract[]
+  attendanceSummaries AttendanceSummary[]
+  payrolls            Payroll[]
+  assignedTasks       OfficeTask[]     @relation("TaskAssignee")
+  createdTasks        OfficeTask[]     @relation("TaskCreator")
+  purchaseRequests    PurchaseRequest[]
+  managedCustomers    Customer[]
+
+  @@index([branchId, departmentId, productionTeamId])
+  @@index([employeeCode])
+  @@index([fullName])
+  @@map("employees")
+}
+
+// ============================================================================
+// 5. HỢP ĐỒNG LAO ĐỘNG (CONTRACTS - KÈM FILE PDF TRÊN NAS)
+// ============================================================================
+
+model Contract {
+  id                  String         @id @default(uuid())
+  contractNumber      String         @unique // VD: "HDLD-2026-0001"
+  employeeId          String
+  contractType        ContractType
+  status              ContractStatus @default(ACTIVE)
+  startDate           DateTime
+  endDate             DateTime?
+  signedDate          DateTime?
+
+  // Lương hợp đồng & Phụ cấp (Cung cấp cho Phần mềm Tính lương Riêng qua API)
+  baseSalary          Decimal        @db.Decimal(15, 2) // Lương cơ bản / Lương hợp đồng
+  insuranceSalary     Decimal        @default(0) @db.Decimal(15, 2) // Mức lương đóng BHXH
+  positionAllowance   Decimal        @default(0) @db.Decimal(15, 2)
+  mealAllowance       Decimal        @default(0) @db.Decimal(15, 2)
+  transportAllowance  Decimal        @default(0) @db.Decimal(15, 2)
+  otherAllowance      Decimal        @default(0) @db.Decimal(15, 2)
+
+  // Lưu trữ trên NAS Enterprise (10.10.20.250 - Chặn xóa + Snapshot 2h)
+  nasPdfPath          String?        // VD: "\\10.10.20.250\NhanSu\HopDong\2026\HDLD-2026-0001.pdf"
+  notes               String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  employee            Employee       @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([employeeId, status])
+  @@map("contracts")
+}
+
+// ============================================================================
+// 6. TỔNG HỢP CÔNG (ATTENDANCE SUMMARIES - CLOUD WEBHOOK SYNC)
+// ============================================================================
+
+model AttendanceSummary {
+  id                  String    @id @default(uuid())
+  employeeId          String
+  branchId            String
+  month               Int       // 1 - 12
+  year                Int       // VD: 2026
+
+  standardWorkDays    Decimal   @default(26) @db.Decimal(5, 2)
+  actualWorkDays      Decimal   @default(0) @db.Decimal(5, 2)
+  paidLeaveDays       Decimal   @default(0) @db.Decimal(5, 2)
+  unpaidLeaveDays     Decimal   @default(0) @db.Decimal(5, 2)
+  overtimeHoursNormal Decimal   @default(0) @db.Decimal(6, 2) // Tăng ca ngày thường (150%)
+  overtimeHoursWeekend Decimal  @default(0) @db.Decimal(6, 2) // Tăng ca cuối tuần (200%)
+  overtimeHoursHoliday Decimal  @default(0) @db.Decimal(6, 2) // Tăng ca lễ tết (300%)
+  lateMinutes         Int       @default(0)
+
+  // Trạng thái khóa công để Phần mềm Tính lương Riêng GET về
+  isLocked            Boolean   @default(false)
+  lockedAt            DateTime?
+  lockedByUserId      String?
+  syncedFromCloudAt   DateTime?
+  rawCloudPayload     Json?
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  employee            Employee  @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  branch              Branch    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  payroll             Payroll?
+
+  @@unique([employeeId, month, year])
+  @@index([branchId, month, year, isLocked])
+  @@map("attendance_summaries")
+}
+
+// ============================================================================
+// 7. BẢNG LƯƠNG & IN PHIẾU LƯƠNG K80/A4 (PAYROLLS)
+// ============================================================================
+
+model Payroll {
+  id                  String        @id @default(uuid())
+  employeeId          String
+  branchId            String
+  productionTeamId    String?       // Phục vụ lọc & in phiếu lương hàng loạt theo Tổ / Chuyền
+  attendanceSummaryId String?       @unique
+  month               Int
+  year                Int
+
+  baseSalary          Decimal       @db.Decimal(15, 2)
+  workDaySalary       Decimal       @db.Decimal(15, 2)
+  totalOvertimeHours  Decimal       @default(0) @db.Decimal(6, 2) // In đậm trên phiếu lương K80/A4
+  overtimePay         Decimal       @default(0) @db.Decimal(15, 2)
+  totalAllowances     Decimal       @default(0) @db.Decimal(15, 2)
+  bonus               Decimal       @default(0) @db.Decimal(15, 2)
+  grossSalary         Decimal       @db.Decimal(15, 2)
+  insuranceDeduction  Decimal       @default(0) @db.Decimal(15, 2)
+  taxDeduction        Decimal       @default(0) @db.Decimal(15, 2)
+  advanceDeduction    Decimal       @default(0) @db.Decimal(15, 2)
+  otherDeduction      Decimal       @default(0) @db.Decimal(15, 2)
+  netPay              Decimal       @db.Decimal(15, 2) // Tiền thực lãnh (In đậm trên phiếu lương)
+
+  status              PayrollStatus @default(CALCULATED)
+  printedCount        Int           @default(0)
+  lastPrintedAt       DateTime?
+  lastPrintedFormat   PayslipFormat?
+  externalPayrollRef  String?       // Mã tham chiếu từ Phần mềm Tính lương Riêng
+
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  employee            Employee           @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  branch              Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  productionTeam      ProductionTeam?    @relation(fields: [productionTeamId], references: [id], onDelete: SetNull)
+  attendanceSummary   AttendanceSummary? @relation(fields: [attendanceSummaryId], references: [id], onDelete: SetNull)
+
+  @@unique([employeeId, month, year])
+  @@index([branchId, productionTeamId, month, year])
+  @@map("payrolls")
+}
+
+// ============================================================================
+// 8. KHÁCH HÀNG (CUSTOMERS - BỘ PHẬN KINH DOANH / SALE)
+// ============================================================================
+
+model Customer {
+  id                  String   @id @default(uuid())
+  customerCode        String   @unique
+  branchId            String
+  assignedEmployeeId  String?
+  companyName         String
+  contactPerson       String?
+  phone               String?
+  email               String?
+  taxCode             String?
+  address             String?
+  notes               String?
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  branch              Branch    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  assignedEmployee    Employee? @relation(fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+
+  @@index([branchId, assignedEmployeeId])
+  @@map("customers")
+}
+
+// ============================================================================
+// 9. NHẬT KÝ THAO TÁC (AUDIT LOGS - TRUY VẾT TOÀN HỆ THỐNG)
+// ============================================================================
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  branchId    String?
+  action      String   // VD: "USER_CREATE", "EMPLOYEE_UPDATE", "PAYROLL_PRINT_K80"
+  module      String   // VD: "AUTH", "USERS", "EMPLOYEES", "PAYROLL", "EXTERNAL_API"
+  targetId    String?
+  ipAddress   String?
+  userAgent   String?
+  oldValues   Json?
+  newValues   Json?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  branch      Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([branchId, module, createdAt])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// CÁC PHÂN HỆ MỞ RỘNG CHO VĂN PHÒNG: CÔNG VIỆC, KẾ HOẠCH SX, THU MUA
+// ============================================================================
+
+model OfficeTask {
+  id          String       @id @default(uuid())
+  code        String       @unique
+  branchId    String
+  departmentId String
+  title       String
+  description String?
+  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus   @default(TODO)
+  dueDate     DateTime?
+  assigneeId  String?
+  creatorId   String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  branch      Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  department  Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  assignee    Employee?  @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  creator     Employee   @relation("TaskCreator", fields: [creatorId], references: [id], onDelete: Restrict)
+
+  @@index([branchId, departmentId, status])
+  @@map("office_tasks")
+}
+
+model ProductionPlan {
+  id               String         @id @default(uuid())
+  planCode         String         @unique
+  branchId         String
+  productionTeamId String
+  productName      String
+  targetQuantity   Int
+  completedQuantity Int           @default(0)
+  startDate        DateTime
+  endDate          DateTime
+  status           TaskStatus     @default(TODO)
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  branch           Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  productionTeam   ProductionTeam @relation(fields: [productionTeamId], references: [id], onDelete: Restrict)
+
+  @@index([branchId, productionTeamId, status])
+  @@map("production_plans")
+}
+
+model PurchaseRequest {
+  id               String         @id @default(uuid())
+  requestCode      String         @unique
+  branchId         String
+  departmentId     String
+  requesterId      String
+  title            String
+  supplierName     String?
+  totalEstimatedAmount Decimal    @db.Decimal(15, 2)
+  itemsJson        Json           // Danh sách vật tư / nguyên phụ liệu cần mua
+  status           PurchaseStatus @default(PENDING_APPROVAL)
+  approvedByUserId String?
+  approvedAt       DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  branch           Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  department       Department     @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  requester        Employee       @relation(fields: [requesterId], references: [id], onDelete: Restrict)
+
+  @@index([branchId, status])
+  @@map("purchase_requests")
+}
