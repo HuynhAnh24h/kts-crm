@@ -1,45 +1,15 @@
 {
-  "name": "kts-crm-backend",
+  "name": "kts-crm-monorepo",
+  "private": true,
   "version": "1.0.0",
-  "description": "Internal Multi-Branch CRM & ERP Backend API (MVC + Services Layer, JWT + Gmail 2FA, Branch-Scoped RBAC)",
-  "main": "dist/server.js",
+  "description": "KTS Internal Multi-Branch CRM/ERP (server + frontend)",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:push": "prisma db push",
-    "prisma:seed": "tsx prisma/seed.ts",
-    "prisma:studio": "prisma studio",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "@prisma/client": "^6.4.1",
-    "bcryptjs": "^3.0.2",
-    "compression": "^1.8.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "express-rate-limit": "^7.5.0",
-    "helmet": "^8.0.0",
-    "jsonwebtoken": "^9.0.2",
-    "morgan": "^1.10.0",
-    "nodemailer": "^6.10.0",
-    "zod": "^3.24.2"
-  },
-  "devDependencies": {
-    "@types/compression": "^1.7.5",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
-    "@types/jsonwebtoken": "^9.0.9",
-    "@types/morgan": "^1.9.9",
-    "@types/node": "^22.13.5",
-    "@types/nodemailer": "^6.4.17",
-    "prisma": "^6.4.1",
-    "tsx": "^4.19.3",
-    "typescript": "^5.7.3",
-    "vitest": "^3.0.7"
+    "dev:server": "npm --prefix server run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:server": "npm --prefix server run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "prisma:push": "npm --prefix server run prisma:push",
+    "prisma:seed": "npm --prefix server run prisma:seed",
+    "prisma:studio": "npm --prefix server run prisma:studio"
   }
 }

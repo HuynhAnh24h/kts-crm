@@ -1,9 +1,13 @@
 node_modules/
 dist/
+server/node_modules/
+server/dist/
+server/.env
+server/storage/
 frontend/node_modules/
 frontend/dist/
+frontend/*.tsbuildinfo
 .env
 storage/
 *.log
 .DS_Store
-
