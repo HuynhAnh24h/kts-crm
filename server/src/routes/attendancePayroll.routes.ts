@@ -36,6 +36,18 @@ router.post(
   AttendancePayrollController.initMonthlyAttendance
 );
 
+router.post(
+  '/attendance/pull-device-logs',
+  requirePermissions(PERMISSIONS.ATTENDANCE_UPDATE),
+  AttendancePayrollController.pullDeviceLogs
+);
+
+router.post(
+  '/attendance/import-rows',
+  requirePermissions(PERMISSIONS.ATTENDANCE_UPDATE),
+  AttendancePayrollController.importAttendanceCsv
+);
+
 router.patch(
   '/attendance/:id',
   requirePermissions(PERMISSIONS.ATTENDANCE_UPDATE),

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CalendarClock,
@@ -14,6 +14,11 @@ import {
   Banknote,
   Clock,
   ShieldAlert,
+  RefreshCw,
+  Upload,
+  Download,
+  CalendarDays,
+  Fingerprint,
 } from 'lucide-react';
 import { apiClient } from '../api/axiosClient';
 import { useAppSelector } from '../store';
@@ -26,6 +31,7 @@ import {
 export const AttendancePayrollPage: React.FC = () => {
   const { user } = useAppSelector((s) => s.auth);
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'PAYROLL'>('ATTENDANCE');
   const [branches, setBranches] = useState<BranchInfo[]>([]);
@@ -60,7 +66,11 @@ export const AttendancePayrollPage: React.FC = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [syncingDevice, setSyncingDevice] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+
+  // Modal xem Bảng chi tiết Giờ Vào/Ra từng ngày (1 -> 30/31)
+  const [dailyLogsModalAtt, setDailyLogsModalAtt] = useState<any | null>(null);
 
   // Modal chỉnh sửa chấm công
   const [editingAtt, setEditingAtt] = useState<any | null>(null);
@@ -156,7 +166,118 @@ export const AttendancePayrollPage: React.FC = () => {
     fetchTabData();
   }, [activeTab, branchId, departmentId, productionTeamId, month, year]);
 
-  // 1. Khởi tạo bảng công tháng
+  // 1A. Kéo công thực tế từ Máy chấm công FaceID / Vân tay (VLAN 40) hoặc Cloud
+  const handlePullFromAttendanceDevices = async () => {
+    const targetBranch = branchId || user?.branchId;
+    if (!targetBranch) {
+      alert('Vui lòng chọn Chi nhánh cần kéo dữ liệu máy chấm công');
+      return;
+    }
+    setSyncingDevice(true);
+    try {
+      const res = await apiClient.post('/attendance-payroll/attendance/pull-device-logs', {
+        branchId: targetBranch,
+        productionTeamId: productionTeamId || undefined,
+        month,
+        year,
+      });
+      setFeedback(`✅ ${res.data.message}`);
+      fetchTabData();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Không thể kéo công từ thiết bị');
+    } finally {
+      setSyncingDevice(false);
+    }
+  };
+
+  // 1B. Tải file CSV mẫu chấm công của Chi nhánh hiện tại
+  const handleDownloadCsvTemplate = () => {
+    const header =
+      'MaNhanVien,HoTen,CongChuan,CongThucTe,NghiPhepCoLuong,NghiKhongLuong,TangCa150,TangCa200,TangCa300,DiTrePhut\n';
+    const sampleRows =
+      attendanceList.length > 0
+        ? attendanceList
+            .map(
+              (a) =>
+                `${a.employee?.employeeCode},"${a.employee?.fullName}",${Number(
+                  a.standardWorkDays
+                )},${Number(a.actualWorkDays)},${Number(a.paidLeaveDays)},${Number(
+                  a.unpaidLeaveDays
+                )},${Number(a.overtimeHoursNormal)},${Number(
+                  a.overtimeHoursWeekend
+                )},${Number(a.overtimeHoursHoliday)},${Number(a.lateMinutes)}`
+            )
+            .join('\n')
+        : 'CN-FAC1-0101,"Nguyễn Thị Công Nhân May",26,26,0,0,28,8,0,0\nNV-FAC1-0001,"Hoàng Nhân Sự Xưởng 01",26,25,1,0,0,0,0,10';
+
+    const blob = new Blob(['\uFEFF' + header + sampleRows], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Bang_Cham_Cong_Thang_${month}_${year}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // 1C. Nhập file CSV xuất từ máy chấm công / Excel
+  const handleImportCsvFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const targetBranch = branchId || user?.branchId;
+    if (!targetBranch) {
+      alert('Vui lòng chọn Chi nhánh trước khi nhập file công');
+      return;
+    }
+
+    const text = await file.text();
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    if (lines.length <= 1) {
+      alert('File CSV không có dữ liệu');
+      return;
+    }
+
+    const rows = lines.slice(1).map((line) => {
+      // Tách CSV có hỗ trợ ngoặc kép
+      const cols = line
+        .split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+        .map((c) => c.replace(/^"|"$/g, '').trim());
+      return {
+        employeeCode: cols[0],
+        standardWorkDays: Number(cols[2] || 26),
+        actualWorkDays: Number(cols[3] || 26),
+        paidLeaveDays: Number(cols[4] || 0),
+        unpaidLeaveDays: Number(cols[5] || 0),
+        overtimeHoursNormal: Number(cols[6] || 0),
+        overtimeHoursWeekend: Number(cols[7] || 0),
+        overtimeHoursHoliday: Number(cols[8] || 0),
+        lateMinutes: Number(cols[9] || 0),
+      };
+    });
+
+    try {
+      const res = await apiClient.post('/attendance-payroll/attendance/import-rows', {
+        branchId: targetBranch,
+        month,
+        year,
+        rows,
+      });
+      setFeedback(`✅ ${res.data.message}`);
+      fetchTabData();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Lỗi nhập file chấm công');
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  // Khởi tạo bảng công tháng
   const handleInitMonth = async () => {
     const targetBranch = branchId || user?.branchId;
     if (!targetBranch) {
@@ -177,7 +298,7 @@ export const AttendancePayrollPage: React.FC = () => {
     }
   };
 
-  // 2. Lưu chỉnh sửa công cá nhân
+  // Lưu chỉnh sửa công cá nhân
   const handleSaveAttendance = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingAtt) return;
@@ -191,7 +312,7 @@ export const AttendancePayrollPage: React.FC = () => {
     }
   };
 
-  // 3. Khóa / Mở khóa công hàng loạt
+  // Khóa / Mở khóa công hàng loạt
   const handleBatchLock = async (lock: boolean) => {
     const targetBranch = branchId || user?.branchId;
     if (!targetBranch) {
@@ -213,7 +334,7 @@ export const AttendancePayrollPage: React.FC = () => {
     }
   };
 
-  // 4. Chạy tính lương tự động từ Công đã khóa + Hợp đồng
+  // Chạy tính lương tự động từ Công đã khóa + Hợp đồng
   const handleCalculatePayroll = async () => {
     const targetBranch = branchId || user?.branchId;
     if (!targetBranch) {
@@ -235,7 +356,7 @@ export const AttendancePayrollPage: React.FC = () => {
     }
   };
 
-  // 5. Lưu điều chỉnh Thưởng / Tạm ứng
+  // Lưu điều chỉnh Thưởng / Tạm ứng
   const handleSavePayrollAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingPayroll) return;
@@ -254,7 +375,7 @@ export const AttendancePayrollPage: React.FC = () => {
     }
   };
 
-  // 6. Phê duyệt / Xác nhận thanh toán bảng lương
+  // Phê duyệt / Xác nhận thanh toán bảng lương
   const handleBatchPayrollStatus = async (status: 'APPROVED' | 'PAID') => {
     const targetBranch = branchId || user?.branchId;
     if (!targetBranch) {
@@ -283,10 +404,10 @@ export const AttendancePayrollPage: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
             <CalendarClock className="w-6 h-6 text-blue-600" />
-            Nhân sự Chấm Công, Khóa Công & Kế Toán Tính Lương
+            Nhân sự Chấm Công, Kéo Công Thực Tế & Kế Toán Tính Lương
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Quy trình khép kín: <strong>Khởi tạo công tháng</strong> → <strong>HR Chốt & Khóa công</strong> → <strong>Kế toán Tính lương từ Hợp đồng</strong> → <strong>Duyệt & In phiếu K80/A4</strong>
+            Hỗ trợ 3 cách lấy công thực tế: <strong>1. Kéo từ Máy chấm công FaceID/Vân tay (VLAN 40)</strong> • <strong>2. Nhập file Excel/CSV</strong> • <strong>3. Chỉnh sửa trực tiếp & Khóa công</strong>
           </p>
         </div>
 
@@ -300,7 +421,7 @@ export const AttendancePayrollPage: React.FC = () => {
             }`}
           >
             <Clock className="w-4 h-4" />
-            1. Bảng Chấm Công & Khóa Công (HR)
+            1. Bảng Chấm Công & Kéo Công (HR)
           </button>
           <button
             onClick={() => setActiveTab('PAYROLL')}
@@ -423,11 +544,11 @@ export const AttendancePayrollPage: React.FC = () => {
       </div>
 
       {/* =====================================================================
-          TAB 1: BẢNG CHẤM CÔNG & KHÓA CÔNG THÁNG
+          TAB 1: BẢNG CHẤM CÔNG, KÉO CÔNG THỰC TẾ & KHÓA CÔNG THÁNG
          ===================================================================== */}
       {activeTab === 'ATTENDANCE' && (
         <div className="space-y-5">
-          {/* Thống kê nhanh & Thanh công cụ HR */}
+          {/* Thống kê nhanh */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
               <p className="text-xs text-slate-500 font-medium">Tổng quân số bảng công</p>
@@ -455,48 +576,80 @@ export const AttendancePayrollPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Nút thao tác nghiệp vụ HR */}
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="flex flex-wrap items-center gap-2">
-              {hasPerm('attendance:update') && (
-                <button
-                  onClick={handleInitMonth}
-                  className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  Khởi tạo Bảng công Tháng {month}/{year}
-                </button>
-              )}
+          {/* Thanh công cụ Kéo công thực tế & Khóa công */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {hasPerm('attendance:update') && (
+                  <>
+                    <button
+                      onClick={handlePullFromAttendanceDevices}
+                      disabled={syncingDevice}
+                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-blue-600/20"
+                    >
+                      <Fingerprint className={`w-4 h-4 ${syncingDevice ? 'animate-spin' : ''}`} />
+                      {syncingDevice
+                        ? 'Đang kéo log từ Máy chấm công...'
+                        : 'Kéo Công Thực Tế Từ Máy Chấm Công (FaceID/Vân Tay)'}
+                    </button>
 
-              {hasPerm('attendance:lock') && (
-                <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv"
+                      onChange={handleImportCsvFile}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-semibold flex items-center gap-1.5"
+                    >
+                      <Upload className="w-4 h-4 text-blue-600" />
+                      Nhập Công từ File CSV/Excel
+                    </button>
+
+                    <button
+                      onClick={handleDownloadCsvTemplate}
+                      className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 text-xs font-medium flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Tải File Mẫu (.CSV)
+                    </button>
+                  </>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {hasPerm('attendance:lock') && (
+                  <>
+                    <button
+                      onClick={() => handleBatchLock(true)}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Lock className="w-4 h-4" />
+                      Khóa Công Kỳ Này
+                    </button>
+                    <button
+                      onClick={() => handleBatchLock(false)}
+                      className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center gap-1.5"
+                    >
+                      <Unlock className="w-4 h-4" />
+                      Mở Khóa
+                    </button>
+                  </>
+                )}
+
+                {hasPerm('payroll:calculate') && (
                   <button
-                    onClick={() => handleBatchLock(true)}
-                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm"
+                    onClick={handleCalculatePayroll}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
                   >
-                    <Lock className="w-4 h-4" />
-                    Khóa Công Toàn Chi Nhánh / Tổ Chuyền
+                    <Calculator className="w-4 h-4" />
+                    Tính Lương Tự Động →
                   </button>
-                  <button
-                    onClick={() => handleBatchLock(false)}
-                    className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center gap-1.5"
-                  >
-                    <Unlock className="w-4 h-4" />
-                    Mở Khóa Công
-                  </button>
-                </>
-              )}
+                )}
+              </div>
             </div>
-
-            {hasPerm('payroll:calculate') && (
-              <button
-                onClick={handleCalculatePayroll}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
-              >
-                <Calculator className="w-4 h-4" />
-                Chuyển sang Tính Lương Tự Động →
-              </button>
-            )}
           </div>
 
           {/* Bảng danh sách chấm công */}
@@ -508,10 +661,10 @@ export const AttendancePayrollPage: React.FC = () => {
                     <th className="py-3.5 px-4">Nhân viên</th>
                     <th className="py-3.5 px-4">Chi nhánh / Tổ chuyền</th>
                     <th className="py-3.5 px-4 text-center">Công thực tế / Chuẩn</th>
-                    <th className="py-3.5 px-4 text-center">Phép / K.Lương</th>
+                    <th className="py-3.5 px-4 text-center">Phép / K.Lương / Trễ</th>
                     <th className="py-3.5 px-4 text-center">Tăng ca (150% / 200% / 300%)</th>
-                    <th className="py-3.5 px-4 text-center">Trạng thái Khóa</th>
-                    <th className="py-3.5 px-4 text-right">Thao tác</th>
+                    <th className="py-3.5 px-4 text-center">Nguồn đồng bộ & Khóa</th>
+                    <th className="py-3.5 px-4 text-right">Chi tiết Vào/Ra & Sửa</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 text-xs">
@@ -527,111 +680,140 @@ export const AttendancePayrollPage: React.FC = () => {
                         <p>Chưa có dữ liệu bảng công cho Tháng {month}/{year}.</p>
                         {hasPerm('attendance:update') && (
                           <button
-                            onClick={handleInitMonth}
-                            className="px-3.5 py-1.5 rounded-lg bg-blue-600 text-white font-semibold text-xs"
+                            onClick={handlePullFromAttendanceDevices}
+                            className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs inline-flex items-center gap-1.5"
                           >
-                            + Bấm để Khởi tạo Bảng công Tháng {month}/{year}
+                            <Fingerprint className="w-4 h-4" />
+                            Bấm để Kéo công thực tế từ Máy chấm công Tháng {month}/{year}
                           </button>
                         )}
                       </td>
                     </tr>
                   ) : (
-                    attendanceList.map((att) => (
-                      <tr key={att.id} className="hover:bg-slate-50/80 transition">
-                        <td className="py-3.5 px-4">
-                          <span className="font-mono font-bold text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200">
-                            {att.employee?.employeeCode}
-                          </span>
-                          <p className="font-bold text-slate-900 mt-1">
-                            {att.employee?.fullName}
-                          </p>
-                          <p className="text-[11px] text-slate-500">
-                            {att.employee?.positionTitle}
-                          </p>
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          <p className="font-semibold text-blue-700">{att.branch?.code}</p>
-                          <p className="text-[11px] text-slate-600">
-                            {att.employee?.department?.name}
-                          </p>
-                          {att.employee?.productionTeam && (
-                            <span className="inline-block mt-0.5 text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                              {att.employee.productionTeam.name}
+                    attendanceList.map((att) => {
+                      const hasDailyLogs = Array.isArray(att.rawCloudPayload?.dailyLogs);
+                      return (
+                        <tr key={att.id} className="hover:bg-slate-50/80 transition">
+                          <td className="py-3.5 px-4">
+                            <span className="font-mono font-bold text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200">
+                              {att.employee?.employeeCode}
                             </span>
-                          )}
-                        </td>
+                            <p className="font-bold text-slate-900 mt-1">
+                              {att.employee?.fullName}
+                            </p>
+                            <p className="text-[11px] text-slate-500">
+                              {att.employee?.positionTitle}
+                            </p>
+                          </td>
 
-                        <td className="py-3.5 px-4 text-center">
-                          <span className="text-sm font-bold text-slate-900">
-                            {Number(att.actualWorkDays)}
-                          </span>
-                          <span className="text-slate-400">
-                            {' '}
-                            / {Number(att.standardWorkDays)} ngày
-                          </span>
-                        </td>
+                          <td className="py-3.5 px-4">
+                            <p className="font-semibold text-blue-700">{att.branch?.code}</p>
+                            <p className="text-[11px] text-slate-600">
+                              {att.employee?.department?.name}
+                            </p>
+                            {att.employee?.productionTeam && (
+                              <span className="inline-block mt-0.5 text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                                {att.employee.productionTeam.name}
+                              </span>
+                            )}
+                          </td>
 
-                        <td className="py-3.5 px-4 text-center">
-                          <span className="text-emerald-700 font-semibold">
-                            {Number(att.paidLeaveDays)} phép
-                          </span>
-                          {' • '}
-                          <span className="text-rose-600 font-semibold">
-                            {Number(att.unpaidLeaveDays)} KL
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center font-mono">
-                          <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200 font-bold">
-                            {Number(att.overtimeHoursNormal)}h
-                          </span>{' '}
-                          /{' '}
-                          <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-bold">
-                            {Number(att.overtimeHoursWeekend)}h
-                          </span>{' '}
-                          /{' '}
-                          <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200 font-bold">
-                            {Number(att.overtimeHoursHoliday)}h
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center">
-                          {att.isLocked ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[11px]">
-                              <Lock className="w-3 h-3" /> ĐÃ KHÓA CÔNG
+                          <td className="py-3.5 px-4 text-center">
+                            <span className="text-sm font-extrabold text-slate-900">
+                              {Number(att.actualWorkDays)}
                             </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold text-[11px]">
-                              <Unlock className="w-3 h-3" /> ĐANG MỞ
+                            <span className="text-slate-400">
+                              {' '}
+                              / {Number(att.standardWorkDays)} ngày
                             </span>
-                          )}
-                        </td>
+                          </td>
 
-                        <td className="py-3.5 px-4 text-right">
-                          {hasPerm('attendance:update') && !att.isLocked && (
-                            <button
-                              onClick={() => {
-                                setEditingAtt(att);
-                                setAttForm({
-                                  standardWorkDays: Number(att.standardWorkDays),
-                                  actualWorkDays: Number(att.actualWorkDays),
-                                  paidLeaveDays: Number(att.paidLeaveDays),
-                                  unpaidLeaveDays: Number(att.unpaidLeaveDays),
-                                  overtimeHoursNormal: Number(att.overtimeHoursNormal),
-                                  overtimeHoursWeekend: Number(att.overtimeHoursWeekend),
-                                  overtimeHoursHoliday: Number(att.overtimeHoursHoliday),
-                                  lateMinutes: Number(att.lateMinutes),
-                                });
-                              }}
-                              className="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-semibold inline-flex items-center gap-1"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" /> Sửa công
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                          <td className="py-3.5 px-4 text-center">
+                            <span className="text-emerald-700 font-semibold">
+                              {Number(att.paidLeaveDays)}P
+                            </span>
+                            {' • '}
+                            <span className="text-rose-600 font-semibold">
+                              {Number(att.unpaidLeaveDays)}KL
+                            </span>
+                            {Number(att.lateMinutes) > 0 && (
+                              <p className="text-[10px] text-amber-700 font-semibold mt-0.5">
+                                Trễ: {att.lateMinutes} phút
+                              </p>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center font-mono">
+                            <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200 font-bold">
+                              {Number(att.overtimeHoursNormal)}h
+                            </span>{' '}
+                            /{' '}
+                            <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-bold">
+                              {Number(att.overtimeHoursWeekend)}h
+                            </span>{' '}
+                            /{' '}
+                            <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200 font-bold">
+                              {Number(att.overtimeHoursHoliday)}h
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center space-y-1">
+                            <div>
+                              {att.isLocked ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[10px]">
+                                  <Lock className="w-3 h-3" /> ĐÃ KHÓA CÔNG
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold text-[10px]">
+                                  <Unlock className="w-3 h-3" /> ĐANG MỞ
+                                </span>
+                              )}
+                            </div>
+                            {att.syncedFromCloudAt && (
+                              <p className="text-[10px] text-slate-400 font-mono">
+                                Đồng bộ:{' '}
+                                {new Date(att.syncedFromCloudAt).toLocaleTimeString('vi-VN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </p>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right space-x-1.5">
+                            {hasDailyLogs && (
+                              <button
+                                onClick={() => setDailyLogsModalAtt(att)}
+                                className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold inline-flex items-center gap-1"
+                              >
+                                <CalendarDays className="w-3.5 h-3.5" /> Log Vào/Ra
+                              </button>
+                            )}
+
+                            {hasPerm('attendance:update') && !att.isLocked && (
+                              <button
+                                onClick={() => {
+                                  setEditingAtt(att);
+                                  setAttForm({
+                                    standardWorkDays: Number(att.standardWorkDays),
+                                    actualWorkDays: Number(att.actualWorkDays),
+                                    paidLeaveDays: Number(att.paidLeaveDays),
+                                    unpaidLeaveDays: Number(att.unpaidLeaveDays),
+                                    overtimeHoursNormal: Number(att.overtimeHoursNormal),
+                                    overtimeHoursWeekend: Number(att.overtimeHoursWeekend),
+                                    overtimeHoursHoliday: Number(att.overtimeHoursHoliday),
+                                    lateMinutes: Number(att.lateMinutes),
+                                  });
+                                }}
+                                className="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-semibold inline-flex items-center gap-1"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" /> Sửa
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -864,6 +1046,113 @@ export const AttendancePayrollPage: React.FC = () => {
                       );
                     })
                   )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Xem Bảng Log Giờ Vào / Ra Từng Ngày Trong Tháng (1 -> 30/31) */}
+      {dailyLogsModalAtt && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex justify-end"
+          onClick={() => setDailyLogsModalAtt(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl bg-white h-full shadow-2xl border-l border-slate-200 p-6 overflow-y-auto space-y-4"
+          >
+            <div className="flex items-start justify-between border-b border-slate-200 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                    {dailyLogsModalAtt.employee?.employeeCode}
+                  </span>
+                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    {dailyLogsModalAtt.rawCloudPayload?.deviceSource || 'Máy chấm công VLAN 40'}
+                  </span>
+                </div>
+                <h3 className="text-lg font-extrabold text-slate-900 mt-1">
+                  Chi tiết Giờ Vào / Ra Tháng {month}/{year} — {dailyLogsModalAtt.employee?.fullName}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Tổng cộng: <strong>{Number(dailyLogsModalAtt.actualWorkDays)} công thực tế</strong> •{' '}
+                  <strong>
+                    {Number(dailyLogsModalAtt.overtimeHoursNormal) +
+                      Number(dailyLogsModalAtt.overtimeHoursWeekend)}
+                    h tăng ca
+                  </strong>
+                </p>
+              </div>
+              <button
+                onClick={() => setDailyLogsModalAtt(null)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <tr>
+                    <th className="py-2.5 px-3">Ngày</th>
+                    <th className="py-2.5 px-3">Thứ</th>
+                    <th className="py-2.5 px-3 text-center">Giờ Vào (In)</th>
+                    <th className="py-2.5 px-3 text-center">Giờ Ra (Out)</th>
+                    <th className="py-2.5 px-3 text-center">Công</th>
+                    <th className="py-2.5 px-3 text-center">Tăng ca</th>
+                    <th className="py-2.5 px-3">Ghi chú máy chấm công</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(dailyLogsModalAtt.rawCloudPayload?.dailyLogs || []).map((log: any) => (
+                    <tr
+                      key={log.day}
+                      className={
+                        log.dayOfWeek === 'CN' ? 'bg-amber-50/40' : 'hover:bg-slate-50'
+                      }
+                    >
+                      <td className="py-2 px-3 font-mono font-semibold text-slate-800">
+                        {log.date}
+                      </td>
+                      <td className="py-2 px-3 font-bold text-slate-600">{log.dayOfWeek}</td>
+                      <td className="py-2 px-3 text-center font-mono">
+                        {log.checkIn ? (
+                          <span
+                            className={`px-2 py-0.5 rounded font-bold ${
+                              log.lateMins > 0
+                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                : 'bg-emerald-50 text-emerald-700'
+                            }`}
+                          >
+                            {log.checkIn}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 text-center font-mono">
+                        {log.checkOut ? (
+                          <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold">
+                            {log.checkOut}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 text-center font-bold text-slate-900">
+                        {log.workDayCredit > 0 ? `${log.workDayCredit}.0` : '0'}
+                      </td>
+                      <td className="py-2 px-3 text-center font-mono font-bold text-indigo-700">
+                        {log.otNormal + log.otWeekend > 0
+                          ? `+${log.otNormal + log.otWeekend}h`
+                          : '—'}
+                      </td>
+                      <td className="py-2 px-3 text-slate-600">{log.note}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

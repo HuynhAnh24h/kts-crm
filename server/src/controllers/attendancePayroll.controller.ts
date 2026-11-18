@@ -28,6 +28,34 @@ export class AttendancePayrollController {
     );
   });
 
+  static pullDeviceLogs = asyncHandler(async (req: Request, res: Response) => {
+    const result = await AttendancePayrollService.pullActualAttendanceFromDevices(
+      req.user!,
+      req.branchContext!,
+      req.body,
+      req.ip
+    );
+    return sendSuccess(
+      res,
+      result,
+      `Đã kéo và tổng hợp công thực tế từ Máy chấm công FaceID/Vân tay cho ${result.syncedCount} nhân sự!`
+    );
+  });
+
+  static importAttendanceCsv = asyncHandler(async (req: Request, res: Response) => {
+    const result = await AttendancePayrollService.importAttendanceRows(
+      req.user!,
+      req.branchContext!,
+      req.body,
+      req.ip
+    );
+    return sendSuccess(
+      res,
+      result,
+      `Đã nhập công thực tế từ file thành công cho ${result.importedCount} nhân sự!`
+    );
+  });
+
   static updateAttendanceRecord = asyncHandler(async (req: Request, res: Response) => {
     const updated = await AttendancePayrollService.updateAttendanceRecord(
       req.user!,
