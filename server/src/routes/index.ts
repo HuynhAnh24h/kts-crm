@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import attendancePayrollRoutes from './attendancePayroll.routes';
 import authRoutes from './auth.routes';
 import employeeRoutes from './employee.routes';
 import externalRoutes from './external.routes';
@@ -21,6 +22,7 @@ router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/employees', employeeRoutes);
 router.use('/organization', organizationRoutes);
+router.use('/attendance-payroll', attendancePayrollRoutes);
 router.use('/external', externalRoutes);
 
 export default router;

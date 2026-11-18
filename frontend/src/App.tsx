@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/AppLayout';
+import { AttendancePayrollPage } from './pages/AttendancePayrollPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EmployeesPage } from './pages/EmployeesPage';
 import { LoginPage } from './pages/LoginPage';
@@ -36,6 +37,7 @@ export const App: React.FC = () => {
           <Route path="users" element={<UsersPage />} />
           <Route path="employees" element={<EmployeesPage />} />
           <Route path="organization" element={<OrganizationPage />} />
+          <Route path="attendance-payroll" element={<AttendancePayrollPage />} />
           <Route path="payslips" element={<PayslipPrintPage />} />
           <Route path="my-profile" element={<MyProfilePage />} />
         </Route>

@@ -11,6 +11,7 @@ import {
   LogOut,
   Network,
   FolderLock,
+  CalendarClock,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../store';
 import { clearSession } from '../store/authSlice';
@@ -62,6 +63,12 @@ export const AppLayout: React.FC = () => {
       label: 'Chi nhánh, Phòng ban & Tổ chuyền',
       icon: Building2,
       show: hasPerm('branches:read') || hasPerm('departments:read'),
+    },
+    {
+      to: '/attendance-payroll',
+      label: 'Chấm công, Khóa công & Tính lương',
+      icon: CalendarClock,
+      show: hasPerm('attendance:read') || hasPerm('payroll:read'),
     },
     {
       to: '/payslips',

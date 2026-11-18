@@ -232,7 +232,7 @@ export const ROLE_DEFINITIONS: Record<RoleCode, RoleDefinition> = {
   ACCOUNTANT_BRANCH: {
     code: 'ACCOUNTANT_BRANCH',
     name: 'Kế Toán Chi Nhánh / Xưởng',
-    description: 'Xem công/lương trong phạm vi chi nhánh và xuất lệnh in phiếu lương K80/A4 theo Tổ/Chuyền',
+    description: 'Xem công/lương trong phạm vi chi nhánh, tính lương và xuất lệnh in phiếu lương K80/A4 theo Tổ/Chuyền',
     defaultScope: 'OWN_BRANCH',
     require2FA: true,
     nasFolderGroup: 'Kế toán',
@@ -245,6 +245,7 @@ export const ROLE_DEFINITIONS: Record<RoleCode, RoleDefinition> = {
       PERMISSIONS.CONTRACTS_READ,
       PERMISSIONS.ATTENDANCE_READ,
       PERMISSIONS.PAYROLL_READ,
+      PERMISSIONS.PAYROLL_CALCULATE,
       PERMISSIONS.PAYROLL_PRINT_SLIP,
       PERMISSIONS.PURCHASING_READ,
       PERMISSIONS.TASKS_READ,
