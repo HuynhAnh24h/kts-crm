@@ -23,6 +23,16 @@ export const globalErrorHandler = (
     });
   }
 
+  if (err instanceof Prisma.PrismaClientInitializationError) {
+    return res.status(503).json({
+      success: false,
+      code: 'DATABASE_UNAVAILABLE',
+      message:
+        'Không thể kết nối tới cơ sở dữ liệu PostgreSQL (localhost:5433). Vui lòng mở Docker Desktop hoặc chạy lệnh: docker compose up -d',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === 'P2002') {
       const target = (err.meta?.target as string[])?.join(', ') || 'trường dữ liệu';

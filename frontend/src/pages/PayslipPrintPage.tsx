@@ -54,25 +54,25 @@ export const PayslipPrintPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-white flex items-center gap-2">
-          <Printer className="w-5 h-5 text-amber-400" />
+        <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+          <Printer className="w-5 h-5 text-amber-600" />
           In Phiếu Lương Hàng Loạt K80 / A4 Theo Tổ Chuyền (Nhà Xưởng)
         </h1>
-        <p className="text-xs text-slate-400 mt-0.5">
+        <p className="text-xs text-slate-500 mt-0.5">
           Luồng 3 trên sơ đồ mạng: PC Kế toán / HR Xưởng lọc theo Tổ/Chuyền và xuất lệnh in nhiệt K80 tự cắt hoặc A4 (3 phiếu/trang), in đậm Giờ tăng ca & Tiền thực lãnh
         </p>
       </div>
 
       <form
         onSubmit={handlePrintBatch}
-        className="p-5 rounded-2xl bg-slate-900 border border-slate-800 grid grid-cols-1 md:grid-cols-5 gap-3 text-xs items-end"
+        className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-3 text-xs items-end"
       >
         <div>
-          <label className="block text-slate-300 mb-1">Chi nhánh / Nhà xưởng</label>
+          <label className="block font-semibold text-slate-700 mb-1">Chi nhánh / Nhà xưởng</label>
           <select
             value={branchId}
             onChange={(e) => setBranchId(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white"
+            className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 font-medium"
           >
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
@@ -83,11 +83,11 @@ export const PayslipPrintPage: React.FC = () => {
         </div>
 
         <div>
-          <label className="block text-slate-300 mb-1">Tổ / Chuyền Sản Xuất</label>
+          <label className="block font-semibold text-slate-700 mb-1">Tổ / Chuyền Sản Xuất</label>
           <select
             value={productionTeamId}
             onChange={(e) => setProductionTeamId(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white"
+            className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 font-medium"
           >
             <option value="">-- Tất cả Tổ / Chuyền --</option>
             {teams
@@ -102,33 +102,33 @@ export const PayslipPrintPage: React.FC = () => {
 
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-slate-300 mb-1">Tháng</label>
+            <label className="block font-semibold text-slate-700 mb-1">Tháng</label>
             <input
               type="number"
               min={1}
               max={12}
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
-              className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white"
+              className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900"
             />
           </div>
           <div>
-            <label className="block text-slate-300 mb-1">Năm</label>
+            <label className="block font-semibold text-slate-700 mb-1">Năm</label>
             <input
               type="number"
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white"
+              className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-slate-300 mb-1">Khổ giấy máy in</label>
+          <label className="block font-semibold text-slate-700 mb-1">Khổ giấy máy in</label>
           <select
             value={format}
             onChange={(e) => setFormat(e.target.value as any)}
-            className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white"
+            className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 font-medium"
           >
             <option value="K80_THERMAL">Máy in nhiệt K80 (Tự cắt rời)</option>
             <option value="A4_THREE_UP">Khổ A4 (3 phiếu / trang)</option>
@@ -138,7 +138,7 @@ export const PayslipPrintPage: React.FC = () => {
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold flex items-center justify-center gap-2"
+          className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold flex items-center justify-center gap-2 shadow-md shadow-amber-600/20"
         >
           <Printer className="w-4 h-4" />
           {loading ? 'Đang kết xuất...' : 'Xuất Lệnh In Phiếu Lương'}
@@ -146,20 +146,20 @@ export const PayslipPrintPage: React.FC = () => {
       </form>
 
       {printResult && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div className="flex items-center gap-2 text-emerald-400 text-sm font-bold">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <div className="flex items-center gap-2 text-emerald-700 text-sm font-bold">
               <CheckCircle2 className="w-5 h-5" />
               Đã kết xuất {printResult.printJobMeta.totalSlips} phiếu lương ({printResult.printJobMeta.paperSpec})
             </div>
-            <span className="text-xs text-slate-400 font-mono">
+            <span className="text-xs text-slate-500 font-mono">
               Người in: {printResult.printJobMeta.printedBy}
             </span>
           </div>
 
           {printResult.slips.length === 0 ? (
-            <div className="p-6 rounded-xl bg-slate-950 border border-slate-800 text-center text-xs text-slate-400">
-              <FileSpreadsheet className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+            <div className="p-6 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500">
+              <FileSpreadsheet className="w-8 h-8 text-slate-400 mx-auto mb-2" />
               Chưa có dữ liệu bảng lương đã đồng bộ từ Phần mềm Tính lương Riêng cho kỳ {month}/{year}.
             </div>
           ) : (
@@ -167,12 +167,12 @@ export const PayslipPrintPage: React.FC = () => {
               {printResult.slips.map((slip: any) => (
                 <div
                   key={slip.payrollId}
-                  className="p-4 rounded-xl bg-white text-slate-900 font-mono text-xs space-y-2 shadow-xl border-t-4 border-slate-900"
+                  className="p-4 rounded-xl bg-white text-slate-900 font-mono text-xs space-y-2 shadow-md border border-slate-300 border-t-4 border-t-slate-900"
                 >
-                  <div className="text-center border-b border-dashed border-slate-400 pb-2">
+                  <div className="text-center border-b border-dashed border-slate-300 pb-2">
                     <p className="font-bold text-sm">PHIẾU LƯƠNG KTS</p>
                     <p>{slip.branchName}</p>
-                    <p className="font-bold">{slip.productionTeamName}</p>
+                    <p className="font-bold text-blue-800">{slip.productionTeamName}</p>
                   </div>
                   <div className="space-y-1">
                     <p>
@@ -181,8 +181,8 @@ export const PayslipPrintPage: React.FC = () => {
                     <p>Ngày công: {slip.workDays}</p>
                     <p>Lương HĐ: {slip.baseSalary.toLocaleString('vi-VN')} đ</p>
                   </div>
-                  <div className="border-t border-b border-dashed border-slate-400 py-2 space-y-1 bg-amber-50 px-2">
-                    <p className="font-bold text-sm">
+                  <div className="border-t border-b border-dashed border-slate-300 py-2 space-y-1 bg-amber-50 px-2 rounded">
+                    <p className="font-bold text-sm text-amber-900">
                       GIỜ TĂNG CA: {slip.highlightBold.totalOvertimeHours}h ({slip.highlightBold.overtimePay.toLocaleString('vi-VN')} đ)
                     </p>
                     <p className="font-bold text-base text-emerald-800">

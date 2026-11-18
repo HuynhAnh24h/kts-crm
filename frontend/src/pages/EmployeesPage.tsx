@@ -136,19 +136,19 @@ export const EmployeesPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <IdCard className="w-5 h-5 text-emerald-400" />
+          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <IdCard className="w-5 h-5 text-emerald-600" />
             Quản trị Hồ sơ Nhân viên (Đa Chi Nhánh & Tổ/Chuyền)
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Phạm vi hiện tại của bạn: <strong className="text-amber-300">{user?.dataScope}</strong> — Dữ liệu nhân sự tự động cô lập theo Chi nhánh & quyền nhạy cảm
+          <p className="text-xs text-slate-500 mt-0.5">
+            Phạm vi hiện tại của bạn: <strong className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">{user?.dataScope}</strong> — Dữ liệu nhân sự tự động cô lập theo Chi nhánh & quyền nhạy cảm
           </p>
         </div>
 
         {canCreate && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white flex items-center gap-2 shadow-lg shadow-emerald-600/20"
+            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white flex items-center gap-2 shadow-md shadow-emerald-600/20"
           >
             <Plus className="w-4 h-4" />
             Thêm Hồ sơ Nhân viên
@@ -157,23 +157,23 @@ export const EmployeesPage: React.FC = () => {
       </div>
 
       {/* Bộ lọc Chi nhánh - Phòng ban - Tổ chuyền */}
-      <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-3">
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && fetchAll()}
             placeholder="Tìm họ tên, mã NV, chức vụ..."
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
           />
         </div>
 
         <select
           value={branchId}
           onChange={(e) => setBranchId(e.target.value)}
-          className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200"
+          className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-800 font-medium"
         >
           <option value="">-- Tất cả Chi nhánh được phép --</option>
           {branches.map((b) => (
@@ -186,7 +186,7 @@ export const EmployeesPage: React.FC = () => {
         <select
           value={departmentId}
           onChange={(e) => setDepartmentId(e.target.value)}
-          className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200"
+          className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-800 font-medium"
         >
           <option value="">-- Tất cả Phòng ban --</option>
           {departments.map((d) => (
@@ -199,7 +199,7 @@ export const EmployeesPage: React.FC = () => {
         <select
           value={productionTeamId}
           onChange={(e) => setProductionTeamId(e.target.value)}
-          className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200"
+          className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-800 font-medium"
         >
           <option value="">-- Tất cả Tổ / Chuyền --</option>
           {teams.map((t) => (
@@ -211,11 +211,11 @@ export const EmployeesPage: React.FC = () => {
       </div>
 
       {/* Danh sách Hồ sơ Nhân viên */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-800 bg-slate-950/60 text-[11px] uppercase tracking-wider text-slate-400">
+              <tr className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
                 <th className="py-3.5 px-4">Mã NV & Họ tên</th>
                 <th className="py-3.5 px-4">Chi nhánh & Phòng ban</th>
                 <th className="py-3.5 px-4">Tổ / Chuyền SX</th>
@@ -224,16 +224,16 @@ export const EmployeesPage: React.FC = () => {
                 <th className="py-3.5 px-4 text-right">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/70 text-xs">
+            <tbody className="divide-y divide-slate-200 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                  <td colSpan={6} className="py-8 text-center text-slate-500">
                     Đang tải hồ sơ nhân sự...
                   </td>
                 </tr>
               ) : employees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                  <td colSpan={6} className="py-8 text-center text-slate-500">
                     Không có hồ sơ nhân sự nào trong phạm vi hiển thị
                   </td>
                 </tr>
@@ -241,45 +241,45 @@ export const EmployeesPage: React.FC = () => {
                 employees.map((emp) => {
                   const activeContract = emp.contracts?.[0];
                   return (
-                    <tr key={emp.id} className="hover:bg-slate-800/40 transition">
+                    <tr key={emp.id} className="hover:bg-slate-50/80 transition">
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                             {emp.employeeCode}
                           </span>
-                          <span className="font-semibold text-white">{emp.fullName}</span>
+                          <span className="font-bold text-slate-900">{emp.fullName}</span>
                         </div>
                         {emp.user && (
-                          <p className="text-[11px] text-slate-400 font-mono mt-1">
+                          <p className="text-[11px] text-slate-500 font-mono mt-1">
                             User: {emp.user.username} ({emp.user.role})
                           </p>
                         )}
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <p className="font-medium text-blue-300 flex items-center gap-1">
+                        <p className="font-semibold text-blue-700 flex items-center gap-1">
                           <Building2 className="w-3.5 h-3.5" />
                           {emp.branch?.name}
                         </p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
+                        <p className="text-[11px] text-slate-500 mt-0.5">
                           {emp.department?.name} ({emp.department?.nasSharePath || 'NAS'})
                         </p>
                       </td>
 
                       <td className="py-3.5 px-4">
                         {emp.productionTeam ? (
-                          <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 inline-flex items-center gap-1 font-medium">
+                          <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 inline-flex items-center gap-1 font-semibold">
                             <Users2 className="w-3.5 h-3.5" />
                             {emp.productionTeam.name}
                           </span>
                         ) : (
-                          <span className="text-slate-500">Khối Văn Phòng</span>
+                          <span className="text-slate-400">Khối Văn Phòng</span>
                         )}
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <p className="font-semibold text-slate-200">{emp.positionTitle}</p>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                        <p className="font-semibold text-slate-800">{emp.positionTitle}</p>
+                        <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
                           {emp.employeeType} • {emp.employmentStatus}
                         </span>
                       </td>
@@ -287,15 +287,15 @@ export const EmployeesPage: React.FC = () => {
                       <td className="py-3.5 px-4">
                         {activeContract ? (
                           <div>
-                            <p className="font-semibold text-emerald-400">
+                            <p className="font-bold text-emerald-700">
                               {Number(activeContract.baseSalary).toLocaleString('vi-VN')} đ
                             </p>
-                            <p className="text-[10px] text-slate-400 font-mono truncate max-w-[210px]">
+                            <p className="text-[10px] text-slate-500 font-mono truncate max-w-[210px]">
                               {activeContract.nasPdfPath}
                             </p>
                           </div>
                         ) : (
-                          <span className="text-slate-500 italic">
+                          <span className="text-slate-400 italic">
                             Ẩn hoặc chưa có HĐ
                           </span>
                         )}
@@ -316,7 +316,7 @@ export const EmployeesPage: React.FC = () => {
                                 nasPdfPath: `\\\\10.10.20.250\\NhanSu\\HopDong\\2026\\HDLD-2026-${emp.employeeCode}.pdf`,
                               });
                             }}
-                            className="px-2.5 py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 inline-flex items-center gap-1"
+                            className="px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 font-semibold inline-flex items-center gap-1"
                           >
                             <FileText className="w-3.5 h-3.5" />
                             Hợp đồng NAS
@@ -334,11 +334,11 @@ export const EmployeesPage: React.FC = () => {
 
       {/* Modal Tạo Hồ sơ Nhân viên */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-white">Thêm Hồ sơ Nhân viên mới</h3>
-              <button onClick={() => setShowCreateModal(false)} className="text-slate-400">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Thêm Hồ sơ Nhân viên mới</h3>
+              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -346,7 +346,7 @@ export const EmployeesPage: React.FC = () => {
             <form onSubmit={handleCreateEmployee} className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 mb-1">Mã Nhân viên</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Mã Nhân viên</label>
                   <input
                     required
                     value={createForm.employeeCode}
@@ -354,11 +354,11 @@ export const EmployeesPage: React.FC = () => {
                       setCreateForm({ ...createForm, employeeCode: e.target.value })
                     }
                     placeholder="NV-HQ-0010 / CN-FAC1-0205"
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white font-mono"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 mb-1">Họ và tên</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Họ và tên</label>
                   <input
                     required
                     value={createForm.fullName}
@@ -366,14 +366,14 @@ export const EmployeesPage: React.FC = () => {
                       setCreateForm({ ...createForm, fullName: e.target.value })
                     }
                     placeholder="Nguyễn Văn A"
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 mb-1">Chi nhánh</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Chi nhánh</label>
                   <select
                     value={createForm.branchId}
                     onChange={(e) => {
@@ -386,7 +386,7 @@ export const EmployeesPage: React.FC = () => {
                         productionTeamId: '',
                       });
                     }}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900"
                   >
                     {branches.map((b) => (
                       <option key={b.id} value={b.id}>
@@ -397,13 +397,13 @@ export const EmployeesPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 mb-1">Phòng ban</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Phòng ban</label>
                   <select
                     value={createForm.departmentId}
                     onChange={(e) =>
                       setCreateForm({ ...createForm, departmentId: e.target.value })
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900"
                   >
                     {departments
                       .filter((d) => !createForm.branchId || d.branchId === createForm.branchId)
@@ -418,7 +418,7 @@ export const EmployeesPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 mb-1">
+                  <label className="block font-semibold text-slate-700 mb-1">
                     Tổ / Chuyền SX (Nếu là Công nhân)
                   </label>
                   <select
@@ -426,7 +426,7 @@ export const EmployeesPage: React.FC = () => {
                     onChange={(e) =>
                       setCreateForm({ ...createForm, productionTeamId: e.target.value })
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900"
                   >
                     <option value="">-- Không thuộc Tổ/Chuyền (Văn phòng) --</option>
                     {teams
@@ -440,7 +440,7 @@ export const EmployeesPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 mb-1">Loại nhân sự</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Loại nhân sự</label>
                   <select
                     value={createForm.employeeType}
                     onChange={(e) =>
@@ -449,7 +449,7 @@ export const EmployeesPage: React.FC = () => {
                         employeeType: e.target.value as any,
                       })
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900"
                   >
                     <option value="OFFICE_STAFF">Nhân viên Văn phòng (VLAN 30)</option>
                     <option value="FACTORY_WORKER">Công nhân Sản xuất (Tổ/Chuyền)</option>
@@ -460,7 +460,7 @@ export const EmployeesPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 mb-1">Chức danh công việc</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Chức danh công việc</label>
                   <input
                     required
                     value={createForm.positionTitle}
@@ -468,33 +468,33 @@ export const EmployeesPage: React.FC = () => {
                       setCreateForm({ ...createForm, positionTitle: e.target.value })
                     }
                     placeholder="Chuyên viên Thu mua / Công nhân May"
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 mb-1">Số CCCD</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Số CCCD</label>
                   <input
                     value={createForm.nationalId}
                     onChange={(e) =>
                       setCreateForm({ ...createForm, nationalId: e.target.value })
                     }
                     placeholder="079099001234"
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300"
+                  className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-medium"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                 >
                   Lưu Hồ sơ Nhân viên
                 </button>
@@ -506,38 +506,38 @@ export const EmployeesPage: React.FC = () => {
 
       {/* Modal Tạo Hợp đồng Lao động & Lưu đường dẫn NAS */}
       {contractModalEmp && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
-                <h3 className="text-base font-bold text-white">
+                <h3 className="text-base font-bold text-slate-900">
                   Cập nhật Hợp đồng Lao động (NAS PDF)
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   {contractModalEmp.employeeCode} — {contractModalEmp.fullName}
                 </p>
               </div>
-              <button onClick={() => setContractModalEmp(null)} className="text-slate-400">
+              <button onClick={() => setContractModalEmp(null)} className="text-slate-400 hover:text-slate-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleCreateContract} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-300 mb-1">Số Hợp đồng</label>
+                <label className="block font-semibold text-slate-700 mb-1">Số Hợp đồng</label>
                 <input
                   required
                   value={contractForm.contractNumber}
                   onChange={(e) =>
                     setContractForm({ ...contractForm, contractNumber: e.target.value })
                   }
-                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white font-mono"
+                  className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 font-mono"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 mb-1">Lương Hợp đồng (VNĐ)</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Lương Hợp đồng (VNĐ)</label>
                   <input
                     type="number"
                     required
@@ -548,11 +548,11 @@ export const EmployeesPage: React.FC = () => {
                         baseSalary: Number(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 mb-1">Phụ cấp tiền ăn (VNĐ)</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Phụ cấp tiền ăn (VNĐ)</label>
                   <input
                     type="number"
                     value={contractForm.mealAllowance}
@@ -562,13 +562,13 @@ export const EmployeesPage: React.FC = () => {
                         mealAllowance: Number(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-300 mb-1">
+                <label className="block font-semibold text-slate-700 mb-1">
                   Đường dẫn lưu trữ PDF trên NAS Enterprise (Chặn xóa + Snapshot 2h)
                 </label>
                 <input
@@ -576,21 +576,21 @@ export const EmployeesPage: React.FC = () => {
                   onChange={(e) =>
                     setContractForm({ ...contractForm, nasPdfPath: e.target.value })
                   }
-                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-purple-300 font-mono"
+                  className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-purple-700 font-mono"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setContractModalEmp(null)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300"
+                  className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-medium"
                 >
                   Đóng
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-semibold"
+                  className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold"
                 >
                   Lưu Hợp đồng
                 </button>
