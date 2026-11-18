@@ -92,8 +92,20 @@ async function main() {
       branchId: factoryBranch.id,
       departmentId: createdFactoryDepts['PROD'],
       code: 'CHUYEN-MAY-01',
-      name: 'Chuyền May 01',
+      name: 'Chuyền May Xuất Khẩu 01',
       leaderName: 'Nguyễn Văn Tổ Trưởng',
+    },
+  });
+
+  const teamDongGoi02 = await prisma.productionTeam.upsert({
+    where: { branchId_code: { branchId: factoryBranch.id, code: 'TO-HOAN-THIEN-02' } },
+    update: {},
+    create: {
+      branchId: factoryBranch.id,
+      departmentId: createdFactoryDepts['PROD'],
+      code: 'TO-HOAN-THIEN-02',
+      name: 'Tổ Hoàn Thiện & Đóng Gói 02',
+      leaderName: 'Lê Thị Tổ Trưởng',
     },
   });
 
@@ -281,6 +293,193 @@ async function main() {
         },
       });
     }
+  }
+
+  // 5. Seed dữ liệu mẫu Kế hoạch Sản xuất, Thu mua, Công việc Văn phòng & Khách hàng
+  const hqLeadEmp = await prisma.employee.findUnique({
+    where: { employeeCode: 'NV-HQ-0003' },
+  });
+  const factoryHrEmp = await prisma.employee.findUnique({
+    where: { employeeCode: 'NV-FAC1-0001' },
+  });
+
+  if (hqLeadEmp && factoryHrEmp) {
+    // 5.1 Kế hoạch sản xuất tại Xưởng 01
+    await prisma.productionPlan.upsert({
+      where: { planCode: 'LSX-2026-1101' },
+      update: {},
+      create: {
+        planCode: 'LSX-2026-1101',
+        branchId: factoryBranch.id,
+        productionTeamId: teamMay01.id,
+        productName: 'Áo Khoác Gió Xuất Khẩu Nhật Bản (Lô Đông 2026)',
+        targetQuantity: 5000,
+        completedQuantity: 3850,
+        startDate: new Date('2026-11-01'),
+        endDate: new Date('2026-11-28'),
+        status: 'IN_PROGRESS',
+        notes: 'Ưu tiên kiểm tra đường may chống thấm trước khi đóng thùng',
+      },
+    });
+
+    await prisma.productionPlan.upsert({
+      where: { planCode: 'LSX-2026-1102' },
+      update: {},
+      create: {
+        planCode: 'LSX-2026-1102',
+        branchId: factoryBranch.id,
+        productionTeamId: teamDongGoi02.id,
+        productName: 'Đóng Gói & Dán Tem Barcode Lô Áo Polo Châu Âu',
+        targetQuantity: 3000,
+        completedQuantity: 3000,
+        startDate: new Date('2026-11-01'),
+        endDate: new Date('2026-11-15'),
+        status: 'COMPLETED',
+        notes: 'Đã bàn giao kho thành phẩm đúng tiến độ',
+      },
+    });
+
+    // 5.2 Yêu cầu Thu mua Vật tư
+    await prisma.purchaseRequest.upsert({
+      where: { requestCode: 'PO-2026-00101' },
+      update: {},
+      create: {
+        requestCode: 'PO-2026-00101',
+        branchId: factoryBranch.id,
+        departmentId: createdFactoryDepts['PROD'],
+        requesterId: factoryHrEmp.id,
+        title: 'Mua vải Polyester chống thấm & Khóa kéo YKK cho Lô LSX-2026-1101',
+        supplierName: 'Công ty TNHH Nguyên Phụ Liệu Dệt May Đông Á',
+        totalEstimatedAmount: 148500000,
+        status: 'PENDING_APPROVAL',
+        itemsJson: [
+          {
+            itemName: 'Vải Polyester 2 lớp chống thấm (Khổ 1m6)',
+            unit: 'Mét',
+            quantity: 2500,
+            unitPrice: 48000,
+          },
+          {
+            itemName: 'Khóa kéo YKK chống nước #5',
+            unit: 'Cái',
+            quantity: 5000,
+            unitPrice: 5700,
+          },
+        ],
+      },
+    });
+
+    await prisma.purchaseRequest.upsert({
+      where: { requestCode: 'PO-2026-00102' },
+      update: {},
+      create: {
+        requestCode: 'PO-2026-00102',
+        branchId: hqBranch.id,
+        departmentId: createdHqDepts['IT'],
+        requesterId: hqLeadEmp.id,
+        title: 'Trang bị thêm 02 Máy in nhiệt Phiếu lương K80 Auto-cut cho Xưởng',
+        supplierName: 'Công ty Thiết Bị Mã Vạch & Máy In Văn Phòng KTS',
+        totalEstimatedAmount: 6800000,
+        status: 'APPROVED',
+        itemsJson: [
+          {
+            itemName: 'Máy in nhiệt K80 LAN/USB tự động cắt giấy',
+            unit: 'Máy',
+            quantity: 2,
+            unitPrice: 3100000,
+          },
+          {
+            itemName: 'Thùng giấy in nhiệt K80x80mm (50 cuộn)',
+            unit: 'Thùng',
+            quantity: 1,
+            unitPrice: 600000,
+          },
+        ],
+      },
+    });
+
+    // 5.3 Công việc Văn phòng (Office Tasks Kanban)
+    const sampleTasks = [
+      {
+        code: 'TASK-261101',
+        branchId: hqBranch.id,
+        departmentId: createdHqDepts['HR'],
+        title: 'Rà soát & Khóa bảng chấm công tháng 11/2026 toàn hệ thống',
+        description: 'Đối chiếu dữ liệu máy chấm công khuôn mặt VLAN 40 và chốt công trước ngày 28.',
+        priority: 'URGENT' as const,
+        status: 'IN_PROGRESS' as const,
+        assigneeId: hqLeadEmp.id,
+        creatorId: hqLeadEmp.id,
+        dueDate: new Date('2026-11-28'),
+      },
+      {
+        code: 'TASK-261102',
+        branchId: factoryBranch.id,
+        departmentId: createdFactoryDepts['ACC-FAC'],
+        title: 'In phiếu lương K80 đợt 1 cho công nhân Chuyền May 01',
+        description: 'Kiểm tra kỹ cột Giờ tăng ca và Thực lãnh in đậm trước khi phát cho Tổ trưởng.',
+        priority: 'HIGH' as const,
+        status: 'TODO' as const,
+        assigneeId: factoryHrEmp.id,
+        creatorId: hqLeadEmp.id,
+        dueDate: new Date('2026-11-30'),
+      },
+      {
+        code: 'TASK-261103',
+        branchId: hqBranch.id,
+        departmentId: createdHqDepts['IT'],
+        title: 'Kiểm tra định kỳ Snapshot 2h trên NAS Enterprise (10.10.20.250)',
+        description: 'Đảm bảo toàn bộ Hợp đồng PDF và bản sao lưu PostgreSQL an toàn chống Ransomware.',
+        priority: 'MEDIUM' as const,
+        status: 'COMPLETED' as const,
+        assigneeId: hqLeadEmp.id,
+        creatorId: hqLeadEmp.id,
+        dueDate: new Date('2026-11-20'),
+      },
+    ];
+
+    for (const t of sampleTasks) {
+      await prisma.officeTask.upsert({
+        where: { code: t.code },
+        update: {},
+        create: t,
+      });
+    }
+
+    // 5.4 Khách hàng B2B (Customers)
+    await prisma.customer.upsert({
+      where: { customerCode: 'KH-B2B-001' },
+      update: {},
+      create: {
+        customerCode: 'KH-B2B-001',
+        branchId: hqBranch.id,
+        assignedEmployeeId: hqLeadEmp.id,
+        companyName: 'Tập Đoàn Thời Trang Uniqlo Việt Nam',
+        contactPerson: 'Mr. Kenji Takahashi (Giám đốc Thu mua)',
+        phone: '028-3910-8899',
+        email: 'procurement@uniqlo-partner.jp',
+        taxCode: '0315889900',
+        address: 'Quận 1, TP. Hồ Chí Minh',
+        notes: 'Đối tác chiến lược đơn hàng xuất khẩu quý 4/2026',
+      },
+    });
+
+    await prisma.customer.upsert({
+      where: { customerCode: 'KH-B2B-002' },
+      update: {},
+      create: {
+        customerCode: 'KH-B2B-002',
+        branchId: hqBranch.id,
+        assignedEmployeeId: hqLeadEmp.id,
+        companyName: 'Công Ty Cổ Phần Chuỗi Siêu Thị Âu Á',
+        contactPerson: 'Chị Nguyễn Minh Thư',
+        phone: '0909-888-777',
+        email: 'thu.nguyen@auaretail.vn',
+        taxCode: '0312445566',
+        address: 'Khu Đô Thị Sala, TP. Thủ Đức, TP.HCM',
+        notes: 'Đặt gia công đồng phục nhân viên định kỳ',
+      },
+    });
   }
 
   console.log('✅ Seed completed successfully! Default password for all accounts: Kts@2026');
